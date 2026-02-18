@@ -15,7 +15,9 @@ import {
   buildSenderLabel,
   buildSenderName,
   expandTextLinks,
+  extractTelegramContact,
   extractTelegramLocation,
+  formatContactText,
   getTelegramTextParts,
   hasBotMention,
   normalizeForwardedContext,
@@ -24,12 +26,18 @@ import {
 } from "./body-helpers.js";
 import type { TelegramGetChat, TelegramStreamMode } from "./types.js";
 
-export type { TelegramForwardedContext, TelegramTextEntity } from "./body-helpers.js";
+export type {
+  TelegramForwardedContext,
+  TelegramTextEntity,
+  NormalizedContact,
+} from "./body-helpers.js";
 export {
   buildSenderLabel,
   buildSenderName,
   expandTextLinks,
+  extractTelegramContact,
   extractTelegramLocation,
+  formatContactText,
   getTelegramTextParts,
   hasBotMention,
   normalizeForwardedContext,

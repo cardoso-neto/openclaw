@@ -69,6 +69,7 @@ export async function buildTelegramInboundContextPayload(params: {
   effectiveWasMentioned: boolean;
   commandAuthorized: boolean;
   locationData?: NormalizedLocation;
+  contactData?: import("./bot/helpers.js").NormalizedContact;
   options?: TelegramMessageContextOptions;
   dmAllowFrom?: Array<string | number>;
   effectiveGroupAllow?: NormalizedAllowFrom;
@@ -102,6 +103,7 @@ export async function buildTelegramInboundContextPayload(params: {
     effectiveWasMentioned,
     commandAuthorized,
     locationData,
+    contactData,
     options,
     dmAllowFrom,
     effectiveGroupAllow,
@@ -310,6 +312,15 @@ export async function buildTelegramInboundContextPayload(params: {
     Sticker: allMedia[0]?.stickerMetadata,
     StickerMediaIncluded: allMedia[0]?.stickerMetadata ? !stickerCacheHit : undefined,
     ...(locationData ? toLocationContext(locationData) : undefined),
+    ...(contactData
+      ? {
+          ContactPhone: contactData.phoneNumber,
+          ContactName: [contactData.firstName, contactData.lastName].filter(Boolean).join(" "),
+          ContactFirstName: contactData.firstName,
+          ContactLastName: contactData.lastName,
+          ContactUserId: contactData.userId != null ? String(contactData.userId) : undefined,
+        }
+      : undefined),
     CommandAuthorized: commandAuthorized,
     CommandSource: options?.commandSource,
     MessageThreadId: threadSpec.id,

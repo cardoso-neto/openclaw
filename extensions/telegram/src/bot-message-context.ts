@@ -490,6 +490,7 @@ export const buildTelegramMessageContext = async ({
     stickerCacheHit: bodyResult.stickerCacheHit,
     effectiveWasMentioned: bodyResult.effectiveWasMentioned,
     locationData: bodyResult.locationData,
+    contactData: bodyResult.contactData,
     options,
     dmAllowFrom,
     effectiveGroupAllow,
