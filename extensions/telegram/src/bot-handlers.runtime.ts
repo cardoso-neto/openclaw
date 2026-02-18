@@ -869,34 +869,31 @@ export const registerTelegramHandlers = ({
       }
       senderLabel = senderLabel || "unknown";
 
-      // Reactions target a specific message_id; the Telegram Bot API does not include
-      // message_thread_id on MessageReactionUpdated, so we route to the chat-level
-      // session (forum topic routing is not available for reactions).
-      const resolvedThreadId = isForum
-        ? resolveTelegramForumThreadId({ isForum, messageThreadId: undefined })
-        : undefined;
-      const peerId = isGroup ? buildTelegramGroupPeerId(chatId, resolvedThreadId) : String(chatId);
-      const parentPeer = buildTelegramParentPeer({ isGroup, resolvedThreadId, chatId });
-      // Fresh config for bindings lookup; other routing inputs are payload-derived.
-      const route = resolveAgentRoute({
-        cfg: telegramDeps.loadConfig(),
-        channel: "telegram",
-        accountId,
-        peer: { kind: isGroup ? "group" : "direct", id: peerId },
-        parentPeer,
+      // Build a synthetic message so the reaction triggers an agent turn.
+      // processMessage handles routing internally via the synthetic context.
+      const emojis = addedReactions.map((r) => r.emoji);
+      const emojiList = emojis.join(" ");
+      const text = `[Emoji reaction: ${emojiList} by ${senderLabel} on message ${messageId}]`;
+      const syntheticMessage = buildSyntheticTextMessage({
+        base: {
+          message_id: messageId,
+          date: reaction.date,
+          chat: reaction.chat,
+          from: user ?? undefined,
+        } as Message,
+        text,
+        from: user ?? undefined,
       });
-      const sessionKey = route.sessionKey;
-
-      // Enqueue system event for each added reaction.
-      for (const r of addedReactions) {
-        const emoji = r.emoji;
-        const text = `Telegram reaction added: ${emoji} by ${senderLabel} on msg ${messageId}`;
-        telegramDeps.enqueueSystemEvent(text, {
-          sessionKey,
-          contextKey: `telegram:reaction:add:${chatId}:${messageId}:${user?.id ?? "anon"}:${emoji}`,
-        });
-        logVerbose(`telegram: reaction event enqueued: ${text}`);
-      }
+      const syntheticCtx = buildSyntheticContext(
+        { me: (ctx as { me?: TelegramContext["me"] }).me },
+        syntheticMessage,
+      );
+      const storeAllowFrom = await loadStoreAllowFrom();
+      await processMessage(syntheticCtx, [], storeAllowFrom, {
+        messageIdOverride: `reaction:${messageId}:${emojis.join(",")}`,
+        forceWasMentioned: true,
+      });
+      logVerbose(`telegram: reaction dispatched as agent turn: ${text}`);
     } catch (err) {
       runtime.error?.(danger(`telegram reaction handler failed: ${String(err)}`));
     }
