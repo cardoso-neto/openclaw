@@ -32,7 +32,9 @@ import { resolveTelegramPreviewStreamMode } from "../preview-streaming.js";
 import {
   buildSenderLabel,
   buildSenderName,
+  extractTelegramContact,
   extractTelegramLocation,
+  formatContactText,
   getTelegramTextParts,
   hasBotMention,
   isBinaryContent,
@@ -48,6 +50,7 @@ import {
 import type { TelegramGetChat, TelegramStreamMode } from "./types.js";
 
 export type {
+  NormalizedContact,
   TelegramForwardedContext,
   TelegramMediaKind,
   TelegramTextEntity,
@@ -55,7 +58,9 @@ export type {
 export {
   buildSenderLabel,
   buildSenderName,
+  extractTelegramContact,
   extractTelegramLocation,
+  formatContactText,
   getTelegramTextParts,
   hasBotMention,
   isBinaryContent,

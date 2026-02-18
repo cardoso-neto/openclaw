@@ -246,6 +246,7 @@ export async function buildTelegramInboundContextPayload(params: {
   audioTranscribedMediaIndex?: number;
   commandAuthorized: boolean;
   locationData?: NormalizedLocation;
+  contactData?: import("./bot/helpers.js").NormalizedContact;
   options?: TelegramMessageContextOptions;
   dmAllowFrom?: Array<string | number>;
   effectiveGroupAllow?: NormalizedAllowFrom;
@@ -299,6 +300,7 @@ export async function buildTelegramInboundContextPayload(params: {
     audioTranscribedMediaIndex,
     commandAuthorized,
     locationData,
+    contactData,
     options,
     dmAllowFrom,
     effectiveGroupAllow,
@@ -597,6 +599,15 @@ export async function buildTelegramInboundContextPayload(params: {
             ? "channel_post"
             : undefined
     : undefined;
+  const contactContext = contactData
+    ? {
+        ContactPhone: contactData.phoneNumber,
+        ContactName: [contactData.firstName, contactData.lastName].filter(Boolean).join(" "),
+        ContactFirstName: contactData.firstName,
+        ContactLastName: contactData.lastName,
+        ContactUserId: contactData.userId != null ? String(contactData.userId) : undefined,
+      }
+    : undefined;
   const inboundHistory =
     hasGroupHistoryContext && historyKey && historyLimit > 0
       ? groupHistoryPromptEntries.length > 0
@@ -758,6 +769,7 @@ export async function buildTelegramInboundContextPayload(params: {
         ? primaryCtx.message.edit_date * 1000
         : undefined,
       LocationLivePeriodSeconds: primaryCtx.message?.location?.live_period,
+      ...contactContext,
       IsForum: isForum,
       TopicName: isForum && topicName ? topicName : undefined,
     },
