@@ -43,7 +43,9 @@ import type {
 import {
   buildSenderLabel,
   buildSenderName,
+  extractTelegramContact,
   extractTelegramLocation,
+  formatContactText,
   getTelegramTextParts,
   hasLeadingBotCommandAddressedToOtherBot,
   hasBotMentionInText,
@@ -51,6 +53,7 @@ import {
   resolveTelegramPrimaryMedia,
   resolveTelegramRichMessagePlaceholder,
   resolveTelegramRichMessageText,
+  type NormalizedContact,
 } from "./bot/body-helpers.js";
 import {
   buildTelegramGroupPeerId,
@@ -89,6 +92,7 @@ type TelegramInboundBodyResult = {
   audioTranscribedMediaIndex?: number;
   stickerCacheHit: boolean;
   locationData?: NormalizedLocation;
+  contactData?: NormalizedContact;
 };
 
 function resolveTelegramMentionFacts(params: {
@@ -250,13 +254,15 @@ export async function resolveTelegramInboundBody(params: {
 
   const locationData = extractTelegramLocation(msg);
   const locationText = locationData ? formatLocationText(locationData) : undefined;
+  const contactData = extractTelegramContact(msg);
+  const contactText = contactData ? formatContactText(contactData) : undefined;
   const rawText = renderTelegramTextEntities(
     messageTextParts.text,
     messageTextParts.entities,
   ).trim();
   const richText = resolveTelegramRichMessageText(msg);
-  const hasUserText = Boolean(rawText || locationText);
-  let rawBody = [rawText, locationText].filter(Boolean).join("\n").trim();
+  const hasUserText = Boolean(rawText || locationText || contactText);
+  let rawBody = [rawText, locationText, contactText].filter(Boolean).join("\n").trim();
   if (!rawBody) {
     rawBody = richText ?? resolveTelegramRichMessagePlaceholder(msg) ?? "";
   }
@@ -467,5 +473,6 @@ export async function resolveTelegramInboundBody(params: {
       : {}),
     stickerCacheHit,
     locationData: locationData ?? undefined,
+    contactData: contactData ?? undefined,
   };
 }

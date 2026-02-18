@@ -34,7 +34,9 @@ import { buildTelegramConversationId } from "../topic-conversation.js";
 import {
   buildSenderLabel,
   buildSenderName,
+  extractTelegramContact,
   extractTelegramLocation,
+  formatContactText,
   getTelegramTextParts,
   hasBotMention,
   isBinaryContent,
@@ -50,6 +52,7 @@ import {
 import type { TelegramGetChat, TelegramStreamMode } from "./types.js";
 
 export type {
+  NormalizedContact,
   TelegramForwardedContext,
   TelegramMediaKind,
   TelegramTextEntity,
@@ -58,7 +61,9 @@ export type { TelegramThreadSpec } from "../thread-spec.js";
 export {
   buildSenderLabel,
   buildSenderName,
+  extractTelegramContact,
   extractTelegramLocation,
+  formatContactText,
   getTelegramTextParts,
   hasBotMention,
   isBinaryContent,

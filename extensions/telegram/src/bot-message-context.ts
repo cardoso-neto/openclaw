@@ -539,6 +539,7 @@ export const buildTelegramMessageContext = async ({
       ? { audioTranscribedMediaIndex: bodyResult.audioTranscribedMediaIndex }
       : {}),
     locationData: bodyResult.locationData,
+    contactData: bodyResult.contactData,
     options,
     dmAllowFrom: dmAllow.allowFrom,
     effectiveGroupAllow,
