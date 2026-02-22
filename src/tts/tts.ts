@@ -114,6 +114,7 @@ export type ResolvedTtsConfig = {
     apiKey?: string;
     model: string;
     voice: string;
+    instructions?: string;
   };
   edge: {
     enabled: boolean;
@@ -289,6 +290,7 @@ export function resolveTtsConfig(cfg: OpenClawConfig): ResolvedTtsConfig {
       apiKey: raw.openai?.apiKey,
       model: raw.openai?.model ?? DEFAULT_OPENAI_MODEL,
       voice: raw.openai?.voice ?? DEFAULT_OPENAI_VOICE,
+      instructions: raw.openai?.instructions,
     },
     edge: {
       enabled: raw.edge?.enabled ?? true,
@@ -666,6 +668,7 @@ export async function textToSpeech(params: {
           apiKey,
           model: openaiModelOverride ?? config.openai.model,
           voice: openaiVoiceOverride ?? config.openai.voice,
+          instructions: config.openai.instructions,
           responseFormat: output.openai,
           timeoutMs: config.timeoutMs,
         });
@@ -765,6 +768,7 @@ export async function textToSpeechTelephony(params: {
         apiKey,
         model: config.openai.model,
         voice: config.openai.voice,
+        instructions: config.openai.instructions,
         responseFormat: output.format,
         timeoutMs: config.timeoutMs,
       });
