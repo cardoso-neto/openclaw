@@ -233,6 +233,7 @@ export const TtsConfigSchema = z
         apiKey: z.string().optional().register(sensitive),
         model: z.string().optional(),
         voice: z.string().optional(),
+        instructions: z.string().optional(),
       })
       .strict()
       .optional(),
