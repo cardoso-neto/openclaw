@@ -447,10 +447,9 @@ export async function initSessionState(params: {
     isNewSession = true;
     systemSent = false;
     abortedLastRun = false;
-    // When a reset trigger (/new, /reset) starts a new session, carry over
-    // user-set behavior overrides (verbose, thinking, reasoning, ttsAuto)
-    // so the user doesn't have to re-enable them every time.
-    if (resetTriggered && entry) {
+    // Carry over user-set behavior overrides so they survive daily/idle resets too,
+    // not just explicit /new or /reset commands.
+    if (entry) {
       persistedThinking = entry.thinkingLevel;
       persistedVerbose = entry.verboseLevel;
       persistedReasoning = entry.reasoningLevel;
