@@ -1,4 +1,5 @@
 import type { Api, Model } from "@mariozechner/pi-ai";
+import { fetch as undiciFetch } from "undici";
 import { fetchWithSsrFGuard } from "../infra/net/fetch-guard.js";
 import {
   buildProviderRequestDispatcherPolicy,
@@ -91,6 +92,8 @@ export function buildGuardedModelFetch(model: Model<Api>): typeof fetch {
       } satisfies RequestInit & { duplex?: "half" });
     const result = await fetchWithSsrFGuard({
       url,
+      // Use undici's own fetch to avoid dispatcher version mismatch with Node's built-in fetch
+      fetchImpl: undiciFetch as unknown as typeof globalThis.fetch,
       init: requestInit ?? init,
       dispatcherPolicy,
       ...(requestConfig.allowPrivateNetwork ? { policy: { allowPrivateNetwork: true } } : {}),
