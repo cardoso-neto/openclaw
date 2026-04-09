@@ -94,8 +94,6 @@ export function resolveAcpxPluginRoot(moduleUrl: string = import.meta.url): stri
   return (
     resolveWorkspaceAcpxPluginRoot(resolvedRoot) ??
     resolveRepoAcpxPluginRoot(resolvedRoot) ??
-    // Shared dist/dist-runtime chunks can load this module outside the plugin tree.
-    // Scan common OpenClaw layouts before falling back to the nearest path guess.
     resolveAcpxPluginRootFromOpenClawLayout(moduleUrl) ??
     resolvedRoot
   );
