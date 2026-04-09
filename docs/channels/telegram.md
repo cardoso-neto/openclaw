@@ -683,9 +683,11 @@ curl "https://api.telegram.org/bot<bot_token>/getUpdates"
   <Accordion title="Reaction notifications">
     Telegram reactions arrive as `message_reaction` updates (separate from message payloads).
 
-    When enabled, OpenClaw enqueues system events like:
+    When enabled, OpenClaw enqueues system events for added, removed, or swapped emoji reactions, for example:
 
-    - `Telegram reaction added: 👍 by Alice (@alice) on msg 42`
+    - `Telegram reaction update: added 👍 by Alice (@alice) on msg 42`
+    - `Telegram reaction update: removed 👍 by Alice (@alice) on msg 42`
+    - `Telegram reaction update: added 🔥; removed 👍 by Alice (@alice) on msg 42`
 
     Config:
 

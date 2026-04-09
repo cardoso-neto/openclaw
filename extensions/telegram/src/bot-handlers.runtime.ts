@@ -839,21 +839,23 @@ export const registerTelegramHandlers = ({
         }
       }
 
-      // Detect added reactions.
       const oldEmojis = new Set(
         reaction.old_reaction
           .filter((r): r is ReactionTypeEmoji => r.type === "emoji")
           .map((r) => r.emoji),
       );
-      const addedReactions = reaction.new_reaction
-        .filter((r): r is ReactionTypeEmoji => r.type === "emoji")
-        .filter((r) => !oldEmojis.has(r.emoji));
+      const newEmojis = new Set(
+        reaction.new_reaction
+          .filter((r): r is ReactionTypeEmoji => r.type === "emoji")
+          .map((r) => r.emoji),
+      );
+      const addedEmojis = [...newEmojis].filter((emoji) => !oldEmojis.has(emoji));
+      const removedEmojis = [...oldEmojis].filter((emoji) => !newEmojis.has(emoji));
 
-      if (addedReactions.length === 0) {
+      if (addedEmojis.length === 0 && removedEmojis.length === 0) {
         return;
       }
 
-      // Build sender label.
       const senderName = user
         ? [user.first_name, user.last_name].filter(Boolean).join(" ").trim() || user.username
         : undefined;
@@ -869,11 +871,14 @@ export const registerTelegramHandlers = ({
       }
       senderLabel = senderLabel || "unknown";
 
-      // Build a synthetic message so the reaction triggers an agent turn.
-      // processMessage handles routing internally via the synthetic context.
-      const emojis = addedReactions.map((r) => r.emoji);
-      const emojiList = emojis.join(" ");
-      const text = `[Emoji reaction: ${emojiList} by ${senderLabel} on message ${messageId}]`;
+      const changeParts: string[] = [];
+      if (addedEmojis.length > 0) {
+        changeParts.push(`added ${addedEmojis.join(" ")}`);
+      }
+      if (removedEmojis.length > 0) {
+        changeParts.push(`removed ${removedEmojis.join(" ")}`);
+      }
+      const text = `[Emoji reaction update: ${changeParts.join("; ")} by ${senderLabel} on message ${messageId}]`;
       const syntheticMessage = buildSyntheticTextMessage({
         base: {
           message_id: messageId,
@@ -890,7 +895,7 @@ export const registerTelegramHandlers = ({
       );
       const storeAllowFrom = await loadStoreAllowFrom();
       await processMessage(syntheticCtx, [], storeAllowFrom, {
-        messageIdOverride: `reaction:${messageId}:${emojis.join(",")}`,
+        messageIdOverride: `reaction:${messageId}:added=${addedEmojis.join(",")}:removed=${removedEmojis.join(",")}`,
         forceWasMentioned: true,
       });
       logVerbose(`telegram: reaction dispatched as agent turn: ${text}`);
