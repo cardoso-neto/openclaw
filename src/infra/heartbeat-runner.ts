@@ -24,6 +24,7 @@ import {
   stripHeartbeatToken,
   type HeartbeatTask,
 } from "../auto-reply/heartbeat.js";
+import { normalizeReplyPayload } from "../auto-reply/reply/normalize-reply.js";
 import { HEARTBEAT_TOKEN } from "../auto-reply/tokens.js";
 import type { ReplyPayload } from "../auto-reply/types.js";
 import { getChannelPlugin } from "../channels/plugins/index.js";
@@ -1020,10 +1021,18 @@ export async function runHeartbeatOnce(opts: {
     const getReplyFromConfig =
       opts.deps?.getReplyFromConfig ?? (await loadHeartbeatRunnerRuntime()).getReplyFromConfig;
     const replyResult = await getReplyFromConfig(ctx, replyOpts, cfg);
-    const replyPayload = resolveHeartbeatReplyPayload(replyResult);
+    const rawReplyPayload = resolveHeartbeatReplyPayload(replyResult);
+    const replyPayload = rawReplyPayload
+      ? normalizeReplyPayload(rawReplyPayload, {
+          applyChannelTransforms: false,
+          stripHeartbeat: false,
+        })
+      : null;
     const includeReasoning = heartbeat?.includeReasoning === true;
     const reasoningPayloads = includeReasoning
-      ? resolveHeartbeatReasoningPayloads(replyResult).filter((payload) => payload !== replyPayload)
+      ? resolveHeartbeatReasoningPayloads(replyResult).filter(
+          (payload) => payload !== rawReplyPayload,
+        )
       : [];
 
     if (!replyPayload || !hasOutboundReplyContent(replyPayload)) {

@@ -1120,6 +1120,73 @@ describe("runHeartbeatOnce", () => {
     }
   });
 
+  it("treats bare NO_REPLY heartbeat payloads as silent and keeps dedupe state clean", async () => {
+    const tmpDir = await createCaseDir("hb-no-reply-silent");
+    const storePath = path.join(tmpDir, "sessions.json");
+    const replySpy = vi.fn();
+    try {
+      const cfg: OpenClawConfig = {
+        agents: {
+          defaults: {
+            workspace: tmpDir,
+            heartbeat: { every: "5m", target: "whatsapp" },
+          },
+        },
+        channels: { whatsapp: { allowFrom: ["*"] } },
+        session: { store: storePath },
+      };
+      const sessionKey = resolveMainSessionKey(cfg);
+
+      await fs.writeFile(
+        storePath,
+        JSON.stringify({
+          [sessionKey]: {
+            sessionId: "sid",
+            updatedAt: 123,
+            lastChannel: "whatsapp",
+            lastTo: "120363401234567890@g.us",
+            lastHeartbeatText: "Earlier alert",
+            lastHeartbeatSentAt: 111,
+          },
+        }),
+      );
+
+      replySpy.mockResolvedValue([{ text: "NO_REPLY" }]);
+      const sendWhatsApp = vi
+        .fn<
+          (
+            to: string,
+            text: string,
+            opts?: unknown,
+          ) => Promise<{ messageId: string; toJid: string }>
+        >()
+        .mockResolvedValue({ messageId: "m1", toJid: "jid" });
+
+      await runHeartbeatOnce({
+        cfg,
+        deps: createHeartbeatDeps(sendWhatsApp, {
+          nowMs: 60_000,
+          getReplyFromConfig: replySpy,
+        }),
+      });
+
+      expect(sendWhatsApp).toHaveBeenCalledTimes(0);
+      const store = JSON.parse(await fs.readFile(storePath, "utf-8")) as Record<
+        string,
+        {
+          lastHeartbeatText?: string;
+          lastHeartbeatSentAt?: number;
+          updatedAt?: number;
+        }
+      >;
+      expect(store[sessionKey]?.lastHeartbeatText).toBe("Earlier alert");
+      expect(store[sessionKey]?.lastHeartbeatSentAt).toBe(111);
+      expect(store[sessionKey]?.updatedAt).toBe(123);
+    } finally {
+      replySpy.mockReset();
+    }
+  });
+
   it.each(
     typedCases<{
       name: string;
