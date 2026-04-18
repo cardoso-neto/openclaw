@@ -543,8 +543,44 @@ function trimTrackedSessionScopes(
   return next;
 }
 
+const SESSION_ROLE_PREFIX_RE = /^(?:user|assistant|system):\s+/i;
+const SESSION_REPLY_TAG_RE = /^\[\[\s*reply_to(?:_current|\s*:\s*[^\]]+)\s*\]\]\s*/i;
+const SESSION_INTERNAL_EVENT_RE = /__openclaw_memory_core_[a-z0-9_]+__/gi;
+const SESSION_METADATA_BLOCK_RE =
+  /(?:conversation info|sender)\s+\(untrusted metadata\):\s*```(?:json)?[\s\S]*?```/gi;
+const SESSION_METADATA_PREFIX_RE = /^(?:\[(?:cron:[^\]]+|media attached:[^\]]+)\]\s*)+/i;
+const SESSION_TIMESTAMP_PREFIX_RE = /^\[[12]\d{3}-\d{2}-\d{2}[^\]]*\]\s*/;
+
+function stripSessionTransportNoise(value: string): string {
+  let next = value.trim();
+  let previous = "";
+  while (next && next !== previous) {
+    previous = next;
+    next = next.replace(SESSION_METADATA_BLOCK_RE, " ");
+    next = next.replace(SESSION_INTERNAL_EVENT_RE, " ");
+    next = next.replace(SESSION_METADATA_PREFIX_RE, "");
+    next = next.replace(SESSION_ROLE_PREFIX_RE, "");
+    next = next.replace(SESSION_TIMESTAMP_PREFIX_RE, "");
+    next = next.replace(SESSION_REPLY_TAG_RE, "").trim();
+  }
+  return next;
+}
+
+function isDiscardableSessionSnippet(value: string): boolean {
+  const normalized = normalizeTrimmedString(value);
+  if (!normalized) {
+    return true;
+  }
+  const lower = normalized.toLowerCase();
+  return lower === "heartbeat_ok" || lower === "heartbeat ok" || lower === "no_reply";
+}
+
 function normalizeSessionCorpusSnippet(value: string): string {
-  return value.replace(/\s+/g, " ").trim().slice(0, SESSION_INGESTION_MAX_SNIPPET_CHARS);
+  const sanitized = stripSessionTransportNoise(value).replace(/\s+/g, " ").trim();
+  if (isDiscardableSessionSnippet(sanitized)) {
+    return "";
+  }
+  return sanitized.slice(0, SESSION_INGESTION_MAX_SNIPPET_CHARS);
 }
 
 function hashSessionMessageId(value: string): string {

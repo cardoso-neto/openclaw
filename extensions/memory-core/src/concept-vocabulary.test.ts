@@ -53,6 +53,20 @@ describe("concept vocabulary", () => {
     expect(tags).not.toContain("ター");
   });
 
+  it("filters transport-noise tags from session snippets", () => {
+    const tags = deriveConceptTags({
+      path: "memory/.dreams/session-corpus/2026-04-14.txt",
+      snippet:
+        "Assistant: [[reply_to_current]] HEARTBEAT_OK user asked about Glacier router migration.",
+    });
+
+    expect(tags).toEqual(expect.arrayContaining(["glacier", "router", "migration"]));
+    expect(tags).not.toContain("assistant");
+    expect(tags).not.toContain("user");
+    expect(tags).not.toContain("heartbeat-ok");
+    expect(tags).not.toContain("reply-to-current");
+  });
+
   it("classifies concept tags by script family", () => {
     expect(classifyConceptTagScript("routeur")).toBe("latin");
     expect(classifyConceptTagScript("路由器")).toBe("cjk");

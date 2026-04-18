@@ -808,6 +808,98 @@ describe("memory-core dreaming phases", () => {
     }
   });
 
+  it("strips role labels and transport metadata from session corpus snippets", async () => {
+    const workspaceDir = await createDreamingWorkspace();
+    vi.stubEnv("OPENCLAW_TEST_FAST", "1");
+    vi.stubEnv("OPENCLAW_STATE_DIR", path.join(workspaceDir, ".state"));
+    const sessionsDir = resolveSessionTranscriptsDirForAgent("main");
+    await fs.mkdir(sessionsDir, { recursive: true });
+    const transcriptPath = path.join(sessionsDir, "dreaming-main.jsonl");
+    await fs.writeFile(
+      transcriptPath,
+      [
+        JSON.stringify({
+          type: "message",
+          message: {
+            role: "assistant",
+            timestamp: "2026-04-05T18:01:00.000Z",
+            content: [{ type: "text", text: "HEARTBEAT_OK" }],
+          },
+        }),
+        JSON.stringify({
+          type: "message",
+          message: {
+            role: "user",
+            timestamp: "2026-04-05T18:02:00.000Z",
+            content: [
+              {
+                type: "text",
+                text: 'System: [2026-04-05 18:02:00 GMT-3] __openclaw_memory_core_short_term_promotion_dream__\nConversation info (untrusted metadata):\n```json\n{"message_id":"1"}\n```\nSender (untrusted metadata):\n```json\n{"username":"neineto"}\n```\n[[reply_to_current]] Investigate Glacier router migration.',
+              },
+            ],
+          },
+        }),
+      ].join("\n") + "\n",
+      "utf-8",
+    );
+    const mtime = new Date("2026-04-05T18:05:00.000Z");
+    await fs.utimes(transcriptPath, mtime, mtime);
+
+    const { beforeAgentReply } = createHarness(
+      {
+        agents: {
+          defaults: {
+            workspace: workspaceDir,
+          },
+          list: [{ id: "main", workspace: workspaceDir }],
+        },
+        plugins: {
+          entries: {
+            "memory-core": {
+              config: {
+                dreaming: {
+                  enabled: true,
+                  phases: {
+                    light: {
+                      enabled: true,
+                      limit: 20,
+                      lookbackDays: 7,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      workspaceDir,
+    );
+
+    try {
+      await withDreamingTestClock(async () => {
+        await triggerLightDreaming(beforeAgentReply, workspaceDir, 5);
+      });
+    } finally {
+      vi.unstubAllEnvs();
+    }
+
+    const corpusPath = path.join(
+      workspaceDir,
+      "memory",
+      ".dreams",
+      "session-corpus",
+      "2026-04-05.txt",
+    );
+    const corpus = await fs.readFile(corpusPath, "utf-8");
+    expect(corpus).not.toContain("Assistant:");
+    expect(corpus).not.toContain("User:");
+    expect(corpus).not.toContain("HEARTBEAT_OK");
+    expect(corpus).not.toContain("Conversation info (untrusted metadata)");
+    expect(corpus).not.toContain("Sender (untrusted metadata)");
+    expect(corpus).not.toContain("reply_to_current");
+    expect(corpus).toContain("Investigate Glacier router migration.");
+  });
+
   it("dedupes reset/deleted session archives instead of double-ingesting", async () => {
     const workspaceDir = await createDreamingWorkspace();
     vi.stubEnv("OPENCLAW_TEST_FAST", "1");
