@@ -14,6 +14,7 @@ import {
   resolveHeartbeatToolResponseFromReplyResult,
 } from "../auto-reply/heartbeat-tool-response.js";
 import { isHeartbeatAcknowledgementText } from "../auto-reply/heartbeat.js";
+import { normalizeReplyPayload } from "../auto-reply/reply/normalize-reply.js";
 import { prepareReplyConversation } from "../auto-reply/reply/prompt-session-context.js";
 import {
   REPLY_OPERATION_RUN_STATE,
@@ -637,7 +638,13 @@ export async function invokeHeartbeatAgentRun(
   const heartbeatScratchProposal = resolveHeartbeatScratchProposalFromReplyResult(replyResult);
   const heartbeatTerminalToolFailure: HeartbeatTerminalToolFailure | undefined =
     resolveHeartbeatTerminalToolFailure(replyResult);
-  const replyPayload = resolveHeartbeatReplyPayload(replyResult);
+  const selectedReplyPayload = resolveHeartbeatReplyPayload(replyResult);
+  const replyPayload = selectedReplyPayload
+    ? normalizeReplyPayload(selectedReplyPayload, {
+        applyChannelTransforms: false,
+        stripHeartbeat: false,
+      })
+    : null;
   const agentRunFailed = agentTurnStatus === "failed";
   if (
     heartbeatScratchProposal !== undefined &&
