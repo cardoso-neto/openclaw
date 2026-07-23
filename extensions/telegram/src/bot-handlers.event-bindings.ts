@@ -1,4 +1,4 @@
-import type { ChatMember, ReactionTypeEmoji } from "grammy/types";
+import type { ChatMember, Message, ReactionTypeEmoji } from "grammy/types";
 import { resolveChannelConfigWrites } from "openclaw/plugin-sdk/channel-config-helpers";
 import { reportChannelRoomJoin } from "openclaw/plugin-sdk/channel-join-intro-runtime";
 import { mutateConfigFile } from "openclaw/plugin-sdk/config-mutation";
@@ -174,16 +174,20 @@ export function createTelegramEventBindings({
           return;
         }
 
-        // Detect additions before topic recovery so no-op reactions avoid cache work and warnings.
+        // Detect changes before topic recovery so no-op reactions avoid cache work and warnings.
         const oldEmojis = new Set(
           reaction.old_reaction
             .filter((item): item is ReactionTypeEmoji => item.type === "emoji")
             .map((item) => item.emoji),
         );
-        const addedReactions = reaction.new_reaction
-          .filter((item): item is ReactionTypeEmoji => item.type === "emoji")
-          .filter((item) => !oldEmojis.has(item.emoji));
-        if (addedReactions.length === 0) {
+        const newEmojis = new Set(
+          reaction.new_reaction
+            .filter((item): item is ReactionTypeEmoji => item.type === "emoji")
+            .map((item) => item.emoji),
+        );
+        const addedEmojis = [...newEmojis].filter((emoji) => !oldEmojis.has(emoji));
+        const removedEmojis = [...oldEmojis].filter((emoji) => !newEmojis.has(emoji));
+        if (addedEmojis.length === 0 && removedEmojis.length === 0) {
           return;
         }
 
@@ -248,16 +252,6 @@ export function createTelegramEventBindings({
           }
         }
 
-        const sessionKey = resolveTelegramConversationRoute({
-          cfg: eventAuthContext.cfg,
-          accountId,
-          chatId,
-          isGroup,
-          threadSpec: recoveredThreadSpec ?? eventAuthContext.threadSpec,
-          senderId,
-          topicAgentId: eventAuthContext.topicConfig?.agentId,
-        }).route.sessionKey;
-
         const senderName = user
           ? [user.first_name, user.last_name].filter(Boolean).join(" ").trim() || user.username
           : undefined;
@@ -273,15 +267,49 @@ export function createTelegramEventBindings({
         }
         senderLabel = senderLabel || "unknown";
 
-        for (const addedReaction of addedReactions) {
-          const emoji = addedReaction.emoji;
-          const text = `Telegram reaction added: ${emoji} by ${senderLabel} on msg ${messageId}`;
-          telegramDeps.enqueueSystemEvent(text, {
-            sessionKey,
-            contextKey: `telegram:reaction:add:${chatId}:${messageId}:${user?.id ?? "anon"}:${emoji}`,
-          });
-          logVerbose(`telegram: reaction event enqueued: ${text}`);
+        const changeParts: string[] = [];
+        if (addedEmojis.length > 0) {
+          changeParts.push(`added ${addedEmojis.join(" ")}`);
         }
+        if (removedEmojis.length > 0) {
+          changeParts.push(`removed ${removedEmojis.join(" ")}`);
+        }
+        const text = `[Emoji reaction update: ${changeParts.join("; ")} by ${senderLabel} on message ${messageId}]`;
+        const syntheticMessage = buildSyntheticTextMessage({
+          base: {
+            message_id: messageId,
+            date: reaction.date,
+            chat: reaction.chat,
+            ...(recoveredThreadSpec?.scope === "forum"
+              ? { message_thread_id: recoveredThreadSpec.id, is_topic_message: true }
+              : {}),
+            ...(recoveredThreadSpec?.scope === "direct-messages"
+              ? {
+                  // Reaction updates omit the topic's creator; routing only consumes its cached id.
+                  direct_messages_topic: {
+                    topic_id: recoveredThreadSpec.id,
+                  } as NonNullable<Message["direct_messages_topic"]>,
+                }
+              : {}),
+          },
+          from: user,
+          text,
+        });
+        const result = await processMessageWithReplyChain({
+          ctx: buildSyntheticContext(ctx, syntheticMessage),
+          msg: syntheticMessage,
+          allMedia: [],
+          storeAllowFrom: eventAuthContext.storeAllowFrom,
+          options: {
+            forceWasMentioned: true,
+            messageIdOverride:
+              typeof ctx.update.update_id === "number"
+                ? String(ctx.update.update_id)
+                : `reaction:${messageId}:${user?.id ?? "anon"}`,
+          },
+        });
+        recordTelegramMessageProcessingResult(result);
+        logVerbose(`telegram: reaction dispatched as agent turn: ${text}`);
       } catch (err) {
         runtime.error?.(danger(`telegram reaction handler failed: ${String(err)}`));
         throw err;
